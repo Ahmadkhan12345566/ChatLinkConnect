@@ -75,12 +75,38 @@ include "connect.php";
 
 <body>
   <?php
+
+function is_sha1($str) {
+  return (bool) preg_match('/^[0-9a-f]{40}$/i', $str);
+}
+ $ipaddress = '';
+    if (isset($_SERVER['HTTP_CLIENT_IP']))
+        $ipaddress = $_SERVER['HTTP_CLIENT_IP'];
+    else if(isset($_SERVER['HTTP_X_FORWARDED_FOR']))
+        $ipaddress = $_SERVER['HTTP_X_FORWARDED_FOR'];
+    else if(isset($_SERVER['HTTP_X_FORWARDED']))
+        $ipaddress = $_SERVER['HTTP_X_FORWARDED'];
+    else if(isset($_SERVER['HTTP_FORWARDED_FOR']))
+        $ipaddress = $_SERVER['HTTP_FORWARDED_FOR'];
+    else if(isset($_SERVER['HTTP_FORWARDED']))
+        $ipaddress = $_SERVER['HTTP_FORWARDED'];
+    else if(isset($_SERVER['REMOTE_ADDR']))
+        $ipaddress = $_SERVER['REMOTE_ADDR'];
+    else
+        $ipaddress = 'UNKNOWN';
+ 
   $time_start = microtime(true);
   $time_start = str_replace(".", "", $time_start);
+  $time_start  = sha1($time_start);
   $id = 0;
   //  echo $time_start; 
   if (isset($_GET['id'])) {
+    
     $id = $_GET["id"];
+    if(!is_sha1($id)){
+           exit;
+    }
+    
     //  echo $id; 
   
     if (isset($_POST["sendChat"])) {
@@ -106,10 +132,61 @@ include "connect.php";
 
 
     }
-    $sql = "select * from `chats` where chat_id=$id ORDER BY id ASC";
+
+    // var_dump($id);
+    $sql = "select * from `chats` where chat_id='$id' ORDER BY id ASC";
     $chats = mysqli_query($con, $sql);
 
+    
+   // Get the user's IP address
+   $user_ip = $_SERVER['REMOTE_ADDR'];
 
+   // Check if the IP is blocked due to exceeding the limit
+   $ipsql = "SELECT * FROM `blockips` WHERE ip='$user_ip'";
+   $ip_result = mysqli_query($con, $ipsql);
+
+   // Define your maximum allowed attempts
+   $max_attempts = 10;
+
+
+  //  var_dump(mysqli_num_rows($chats));
+  //  var_dump(mysqli_num_rows($ip_result));
+   // If no records found and the user's IP is not blocked
+   if (mysqli_num_rows($chats) == 0 ) {
+    // Check if the IP already exists in the blockips table
+    $ip_attempts_sql = "SELECT attempts FROM `blockips` WHERE ip='$user_ip'";
+    $ip_attempts_result = mysqli_query($con, $ip_attempts_sql);
+
+    if (mysqli_num_rows($ip_attempts_result) > 0) {
+        // IP exists, update the attempts count
+        $row = mysqli_fetch_assoc($ip_attempts_result);
+        $attempts = $row['attempts'];
+
+        if ($attempts >= $max_attempts) {
+            // Block access for this IP
+            // You might want to show an error message or redirect the user to a blocked page
+            // echo "Access Denied. Your IP has been blocked due to exceeding the maximum attempts.";
+            exit;
+        } else {
+          // var_dump("Increment");
+            // Increment attempts count for the existing IP
+            $attempts++;
+            $update_attempts_sql = "UPDATE `blockips` SET attempts=$attempts WHERE ip='$user_ip'";
+            mysqli_query($con, $update_attempts_sql);
+        }
+    } else {
+
+      // var_dump("in insert");
+        // IP doesn't exist, insert a new record
+        $insert_attempts_sql = "INSERT INTO `blockips` (ip, attempts) VALUES ('$user_ip', 1)";
+        mysqli_query($con, $insert_attempts_sql);
+    }
+}
+
+
+    
+
+// var_dump($chats);
 
     // end of id 
   
@@ -134,11 +211,11 @@ include "connect.php";
           CHAT ID : 
         </label> -->
         <div class="form-group row">
-        <div class="col-sm-6">
+        <div class="col-sm-8">
         <!-- The text field -->
         <input disabled class="form-control" style="color:black;font-weight: bold;" type="text" value="<?php  echo $id; ?>" id="myInput">
         </div>
-        <div class="col-sm-6">
+        <div class="col-sm-4">
         <!-- The button used to copy the text -->
        <button class="btn btn-default" style="color:black;font-weight: bold;"  onclick="myFunction()">Copy CHAT ID</button>
         </div> 
@@ -236,6 +313,21 @@ include "connect.php";
 
 </body>
 <script>
+// function myFunction() {
+//   // Get the text field
+//   var copyText = document.getElementById("myInput");
+
+//   // Select the text field
+//   copyText.select();
+//   copyText.setSelectionRange(0, 99999); // For mobile devices
+
+//   // Copy the text inside the text field
+//   navigator.clipboard.writeText(copyText.value);
+  
+//   // Alert the copied text
+//   alert("Copied the text: " + copyText.value);
+// }
+
 function myFunction() {
   // Get the text field
   var copyText = document.getElementById("myInput");
@@ -244,12 +336,36 @@ function myFunction() {
   copyText.select();
   copyText.setSelectionRange(0, 99999); // For mobile devices
 
-  // Copy the text inside the text field
-  navigator.clipboard.writeText(copyText.value);
-  
-  // Alert the copied text
-  alert("Copied the text: " + copyText.value);
+  // Check if the clipboard API is available
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    // Copy the text inside the text field using clipboard API
+    navigator.clipboard.writeText(copyText.value)
+      .then(() => {
+        // Alert the copied text
+        alert("Copied the text: " + copyText.value);
+      })
+      .catch((err) => {
+        // Handle any errors that occurred while copying
+        console.error('Unable to copy:', err);
+      });
+  } else {
+    // Fallback for browsers that do not support the clipboard API
+    try {
+      // Attempt to copy the text using execCommand (older browsers)
+      var successful = document.execCommand('copy');
+      var msg = successful ? 'successful' : 'unsuccessful';
+      console.log('Fallback: Copying text command was ' + msg);
+      
+      // Alert the copied text if the copy was successful
+      if (successful) {
+        alert("Copied the text: " + copyText.value);
+      }
+    } catch (err) {
+      console.error('Fallback: Unable to copy:', err);
+    }
+  }
 }
+
 </script>
 
 </html>

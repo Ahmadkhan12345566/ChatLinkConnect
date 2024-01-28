@@ -1,6 +1,6 @@
 <?php
 
-$con = new mysqli("localhost",'root','password','php_crud');
+$con = new mysqli("localhost",'root','password','chats');
 if(!$con){
 die(mysqli_error($con));
 }

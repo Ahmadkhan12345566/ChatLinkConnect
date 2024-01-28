@@ -93,8 +93,13 @@ session_start();
   $time_start = microtime(true);
   $time_start = str_replace(".", "", $time_start);
   $id = 0;
-  if (isset($_POST["secret"]) == "secret") {
+  if (isset($_POST["secret"])) {
+    if($_POST["user"] == "secret"){
+    // var_dump($_POST);
+    // var_dump("test");
+    // die();
     $_SESSION["status"] = "1";
+  }
   }
 
   if (isset($_POST["out"])) {
@@ -130,7 +135,7 @@ session_start();
 
 
     }
-    $sql = "select * from `chats` where chat_id=$id ORDER BY id ASC";
+    $sql = "select * from `chats` where chat_id='$id' ORDER BY id ASC";
     $chats = mysqli_query($con, $sql);
 
 
@@ -283,7 +288,7 @@ if (isset($_GET['id'])) {
           <form method="post" action="admin.php">
             <div class="form-group">
               <label for="chatId">Enter Secret Code</label>
-              <input type="text" name="id" class="form-control" id="chatId" aria-describedby="idHelp"
+              <input type="text" name="user" class="form-control" id="chatId" aria-describedby="idHelp"
                 placeholder="Enter Secret Code">
               <!-- <small id="idHelp" class="form-text text-muted">Enter the Chat ID provided when chat started</small> -->
             </div>
